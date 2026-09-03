@@ -48,6 +48,17 @@ npm run dev
 MODEL_PROBE_PORT=4300 npm run dev
 ```
 
+## macOS 应用
+
+需要在 macOS 上构建未签名的 Apple Silicon `.app`：
+
+```bash
+npm install
+npm run package:mac
+```
+
+产物位于 `dist/mac-arm64/Model Probe.app`，双击即可启动。应用会在本机随机端口启动服务，退出时自动关闭；首次分发给其他 Mac 时需要使用 Apple Developer 证书签名和公证。
+
 ## 使用
 
 1. 选择协议，输入 Base URL 和 API Key；不确定协议时可选择“自动识别”，也可以给连接配置命名并保存。

@@ -3,9 +3,36 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "main": "desktop/main.mjs",
   "scripts": {
     "dev": "node server.mjs",
     "start": "node server.mjs",
-    "check": "node --check server.mjs && node --check public/app.js"
+    "desktop": "electron .",
+    "package:mac": "electron-builder --mac dir",
+    "check": "node --check server.mjs && node --check public/app.js && node --check desktop/main.mjs"
+  },
+  "build": {
+    "appId": "top.modelprobe.app",
+    "productName": "Model Probe",
+    "asar": true,
+    "files": [
+      "desktop/**/*",
+      "public/**/*",
+      "server.mjs",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dir"
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.1.1",
+    "electron-builder": "^26.15.3"
   }
 }
