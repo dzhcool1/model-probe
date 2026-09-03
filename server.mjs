@@ -264,34 +264,72 @@ function ccSwitchProfileId(appType, id) {
   return "ccswitch-" + encodeURIComponent(appType + ":" + id);
 }
 
-async function listCcSwitchProfiles() {
-  const databasePath = path.join(homedir(), ".cc-switch", "cc-switch.db");
-  try {
-    await stat(databasePath);
-  } catch {
-    throw new Error("未找到 CC Switch 本地数据库。请确认 CC Switch 已安装并运行过。");
+function ccSwitchDatabaseCandidates() {
+  const home = homedir();
+  const candidates = [path.join(home, ".cc-switch", "cc-switch.db")];
+  if (process.platform === "win32") {
+    const legacyHome = String(process.env.HOME || "").trim();
+    if (legacyHome && path.resolve(legacyHome) !== path.resolve(home)) {
+      candidates.push(path.join(legacyHome, ".cc-switch", "cc-switch.db"));
+    }
   }
+  return [...new Set(candidates)];
+}
+
+async function findCcSwitchDatabase() {
+  for (const candidate of ccSwitchDatabaseCandidates()) {
+    try {
+      const info = await stat(candidate);
+      if (info.isFile()) return candidate;
+    } catch {
+      // Try the next platform-specific location.
+    }
+  }
+  throw new Error("未找到 CC Switch 本地数据库。请确认 CC Switch 已安装并运行过。");
+}
+
+async function readCcSwitchRows(databasePath, sql) {
+  let DatabaseSync;
+  try {
+    ({ DatabaseSync } = await import("node:sqlite"));
+  } catch (error) {
+    const missingBuiltInSqlite = ["ERR_MODULE_NOT_FOUND", "ERR_UNKNOWN_BUILTIN_MODULE"].includes(error?.code);
+    if (!missingBuiltInSqlite) throw error;
+  }
+
+  if (typeof DatabaseSync === "function") {
+    const database = new DatabaseSync(databasePath, { readOnly: true });
+    try {
+      return database.prepare(sql).all();
+    } finally {
+      database.close();
+    }
+  }
+
+  try {
+    const { stdout } = await execFileAsync("sqlite3", ["-readonly", "-json", databasePath, sql], {
+      maxBuffer: 8 * 1024 * 1024,
+    });
+    const rows = stdout.trim() ? JSON.parse(stdout) : [];
+    if (!Array.isArray(rows)) throw new Error("SQLite 返回的内容不是数组。");
+    return rows;
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      throw new Error("当前运行时没有内置 SQLite，且系统未找到 sqlite3 命令。请使用 Node.js 22+ 或安装 sqlite3。");
+    }
+    throw new Error("读取 CC Switch 数据库失败：" + (error?.message || "SQLite 查询失败。"));
+  }
+}
+
+async function listCcSwitchProfiles() {
+  const databasePath = await findCcSwitchDatabase();
 
   const sql = [
     "SELECT id, app_type AS appType, name, settings_config AS settingsConfig,",
     "meta, is_current AS isCurrent FROM providers",
     "ORDER BY app_type, sort_index, name",
   ].join(" ");
-  let stdout;
-  try {
-    ({ stdout } = await execFileAsync("sqlite3", ["-readonly", "-json", databasePath, sql], {
-      maxBuffer: 8 * 1024 * 1024,
-    }));
-  } catch (error) {
-    throw new Error("读取 CC Switch 数据库失败：" + (error?.message || "sqlite3 不可用。"));
-  }
-
-  let rows;
-  try {
-    rows = stdout.trim() ? JSON.parse(stdout) : [];
-  } catch {
-    throw new Error("CC Switch 数据库返回了无法解析的内容。");
-  }
+  const rows = await readCcSwitchRows(databasePath, sql);
 
   const candidates = rows.map((row) => {
     const appType = String(row.appType || "");
