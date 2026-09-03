@@ -18,6 +18,20 @@
 - 用延迟排行、TTFT 构成和缓存状态分布图快速比较结果
 - 保存模型目录缓存，在列表接口暂时不可用时提供 24 小时内的兜底目录
 
+## 界面预览
+
+### 全量体检总览
+
+![全量模型体检总览](docs/screenshots/overview.png)
+
+### 逐模型结果与缓存状态
+
+![逐模型结果与缓存状态](docs/screenshots/results.png)
+
+### 测试历史
+
+![本地测试历史](docs/screenshots/history.png)
+
 ## 运行
 
 需要 Node.js 18 或更高版本：
