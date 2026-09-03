@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <title>Model Probe - 模型体检台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div>
+            <h1>Model Probe</h1>
+            <p>模型性能体检台</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <span class="local-status"><span class="status-dot"></span>本地工作台</span>
+          <button id="exportJson" type="button" class="topbar-button" title="导出当前结果 JSON">
+            <span class="button-icon" aria-hidden="true">⇩</span><span>导出报告</span>
+          </button>
+          <button id="historyButton" type="button" class="topbar-button" title="查看本地测试历史">
+            <span class="button-icon" aria-hidden="true">◷</span><span>测试历史</span>
+          </button>
+          <a class="github-link" href="https://github.com/dzhcool1/model-probe" target="_blank" rel="noreferrer" aria-label="打开 GitHub 项目" title="打开 GitHub 项目">
+            <svg class="github-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.74.08-.74 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49.99.11-.77.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.6-2.8 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"/></svg>
+          </a>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="sidebar">
+          <section class="connection-section framed-section">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">CONNECTION</span>
+                <h2>连接配置</h2>
+              </div>
+              <span id="connectionStatus" class="connection-status idle">未连接</span>
+            </div>
+
+            <div class="profile-row">
+              <label for="profileSelect">配置档案</label>
+              <select id="profileSelect" aria-label="选择已保存的配置档案">
+                <option value="">当前未保存</option>
+              </select>
+            </div>
+            <div class="save-row">
+              <input id="profileName" type="text" maxlength="40" placeholder="给这组连接起个名字" aria-label="配置档案名称" />
+              <button id="saveProfile" type="button" class="small-action"><span aria-hidden="true">+</span>保存</button>
+            </div>
+            <button id="deleteProfile" type="button" class="text-button danger-text" hidden>删除当前配置</button>
+            <button id="importCcSwitch" type="button" class="import-button full-width" title="读取本机 CC Switch 中已保存的连接配置">
+              <span class="button-icon" aria-hidden="true">⇩</span>从 CC Switch 一键导入
+            </button>
+
+            <div class="field-group">
+              <label>协议</label>
+              <div class="segmented" role="tablist" aria-label="协议选择">
+                <button type="button" class="segment" data-protocol="auto">自动识别</button>
+                <button type="button" class="segment active" data-protocol="openai">OpenAI</button>
+                <button type="button" class="segment" data-protocol="google">Google</button>
+                <button type="button" class="segment" data-protocol="claude">Claude</button>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label for="baseUrl">Base URL</label>
+              <input id="baseUrl" type="url" autocomplete="off" placeholder="https://api.openai.com/v1" />
+              <span id="urlHint" class="field-hint">支持根地址、/v1 或完整模型接口地址</span>
+            </div>
+
+            <div class="field-group">
+              <label for="apiKey">API Key</label>
+              <div class="input-with-action">
+                <input id="apiKey" type="password" autocomplete="new-password" placeholder="输入当前接口的 Key" />
+                <button id="toggleKey" type="button" class="icon-button" aria-label="显示或隐藏 API Key" title="显示或隐藏 API Key">◉</button>
+              </div>
+            </div>
+
+            <div class="privacy-note">
+              <span class="note-icon" aria-hidden="true">i</span>
+              <span>配置仅保存在当前浏览器，Key 不会随报告导出。</span>
+            </div>
+          </section>
+
+          <section class="settings-section framed-section">
+            <div class="section-heading compact-heading">
+              <div>
+                <span class="eyebrow">RUN SETTINGS</span>
+                <h2>探测参数</h2>
+              </div>
+            </div>
+
+            <div class="field-group compact-field">
+              <label for="prompt">测试提示词</label>
+              <textarea id="prompt" rows="4">Reply with a short acknowledgement.</textarea>
+            </div>
+
+            <div class="two-column-fields">
+              <div class="field-group compact-field">
+                <label for="maxTokens">最大输出</label>
+                <input id="maxTokens" type="number" min="1" max="256" value="16" />
+              </div>
+              <div class="field-group compact-field">
+                <label for="concurrency">并发数</label>
+                <input id="concurrency" type="number" min="1" max="8" value="3" />
+              </div>
+            </div>
+
+            <div class="field-group compact-field">
+              <label for="timeoutSeconds">单次请求超时</label>
+              <div class="input-suffix"><input id="timeoutSeconds" type="number" min="10" max="180" value="90" /><span>秒</span></div>
+            </div>
+
+            <label class="check-row">
+              <input id="cacheProbe" type="checkbox" checked />
+              <span class="check-copy"><strong>执行缓存复测</strong><small>每个模型连续请求两次</small></span>
+            </label>
+          </section>
+        </aside>
+
+        <section class="main-content">
+          <section class="hero-panel">
+            <div class="hero-main">
+              <div>
+                <span class="eyebrow hero-eyebrow">LIVE DIAGNOSTICS / ALL MODELS</span>
+                <h2>全量模型体检</h2>
+                <p id="connectionSummary" class="connection-summary">等待一组连接</p>
+              </div>
+              <div class="run-meta">
+                <span id="runStatus" class="run-status">等待连接</span>
+                <span id="lastRunAt" class="last-run">尚无运行记录</span>
+              </div>
+            </div>
+            <div class="hero-actions">
+              <button id="runAll" type="button" class="primary-button">
+                <span class="button-icon" aria-hidden="true">▶</span>获取模型并测试全部
+              </button>
+              <button id="loadModels" type="button" class="secondary-button">
+                <span class="button-icon" aria-hidden="true">↻</span>刷新模型目录
+              </button>
+              <button id="stopProbe" type="button" class="stop-button" disabled>
+                <span class="button-icon" aria-hidden="true">■</span>停止后续任务
+              </button>
+            </div>
+            <div class="progress-wrap">
+              <div class="progress-heading">
+                <span id="progressLabel">准备开始全量探测</span>
+                <strong id="progressValue">0%</strong>
+              </div>
+              <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+            </div>
+          </section>
+
+          <section class="summary-grid" aria-label="探测汇总">
+            <article class="summary-card summary-blue">
+              <div class="summary-topline"><span>发现模型</span><span class="summary-symbol">◎</span></div>
+              <strong id="modelCount">0</strong>
+              <small id="modelCountNote">等待获取模型</small>
+            </article>
+            <article class="summary-card summary-teal">
+              <div class="summary-topline"><span>成功 / 完成</span><span class="summary-symbol">✓</span></div>
+              <strong id="completedCount">0 / 0</strong>
+              <small id="successRate">成功率 —</small>
+            </article>
+            <article class="summary-card summary-orange">
+              <div class="summary-topline"><span>P50 首次延迟</span><span class="summary-symbol">↗</span></div>
+              <strong id="medianLatency">—</strong>
+              <small id="fastestTtft">最快 TTFT —</small>
+            </article>
+            <article class="summary-card summary-blue summary-p95">
+              <div class="summary-topline"><span>P95 首次延迟</span><span class="summary-symbol">⌁</span></div>
+              <strong id="p95Latency">—</strong>
+              <small id="averageSpeed">平均速度 —</small>
+            </article>
+            <article class="summary-card summary-violet">
+              <div class="summary-topline"><span>缓存命中</span><span class="summary-symbol">◌</span></div>
+              <strong id="cacheHitCount">—</strong>
+              <small id="cacheCoverage">等待 usage 信号</small>
+            </article>
+            <article class="summary-card summary-ink">
+              <div class="summary-topline"><span>采样 Token</span><span class="summary-symbol">#</span></div>
+              <strong id="tokenUsage">—</strong>
+              <small id="tokenCoverage">等待 usage 信号</small>
+            </article>
+          </section>
+
+          <section class="insight-strip" aria-live="polite">
+            <div class="insight-mark" aria-hidden="true">✦</div>
+            <div class="insight-copy">
+              <span class="eyebrow">RUN INSIGHT</span>
+              <p id="runInsight">运行完成后，这里会给出最快模型、失败项和缓存信号摘要。</p>
+            </div>
+            <p id="cacheInsight" class="cache-insight">缓存状态等待探测</p>
+          </section>
+
+          <section class="chart-grid">
+            <article class="chart-panel chart-wide">
+              <div class="chart-heading">
+                <div>
+                  <span class="eyebrow">LATENCY RANKING</span>
+                  <h3>首次响应延迟</h3>
+                </div>
+                <span class="chart-unit">单位 ms · 最快在前</span>
+              </div>
+              <div id="latencyChart" class="bar-chart empty-chart"><span>完成探测后显示延迟排行</span></div>
+            </article>
+
+            <article class="chart-panel cache-panel">
+              <div class="chart-heading">
+                <div>
+                  <span class="eyebrow">CACHE SIGNAL</span>
+                  <h3>缓存状态分布</h3>
+                </div>
+              </div>
+              <div class="cache-visual">
+                <div id="cacheDonut" class="cache-donut empty-donut"><span>—</span></div>
+                <div id="cacheLegend" class="cache-legend"></div>
+              </div>
+              <p id="cacheChartNote" class="chart-note">缓存状态取自上游 usage 字段。</p>
+            </article>
+
+            <article class="chart-panel chart-wide">
+              <div class="chart-heading">
+                <div>
+                  <span class="eyebrow">TIME TO FIRST TOKEN</span>
+                  <h3>TTFT / 总延迟</h3>
+                </div>
+                <div class="chart-legend"><span><i class="legend-swatch total"></i>总延迟</span><span><i class="legend-swatch ttft"></i>TTFT</span></div>
+              </div>
+              <div id="timingChart" class="timing-chart empty-chart"><span>完成探测后显示时间构成</span></div>
+            </article>
+          </section>
+
+          <section class="catalog-section framed-section">
+            <div class="section-heading catalog-heading">
+              <div>
+                <span class="eyebrow">MODEL CATALOG</span>
+                <h3>模型目录</h3>
+              </div>
+              <div class="catalog-tools">
+                <label class="search-control" for="modelSearch"><span aria-hidden="true">⌕</span><input id="modelSearch" type="search" placeholder="搜索模型" /></label>
+                <select id="modelStatusFilter" aria-label="筛选模型状态">
+                  <option value="all">全部状态</option>
+                  <option value="success">成功</option>
+                  <option value="error">失败</option>
+                  <option value="waiting">待测</option>
+                  <option value="running">检测中</option>
+                </select>
+              </div>
+            </div>
+            <div class="catalog-subhead"><span id="catalogNote" class="section-note">尚未获取</span><span id="catalogVisibleNote" class="section-note"></span></div>
+            <div id="modelList" class="model-list empty-state">
+              <div class="empty-icon" aria-hidden="true">⌁</div>
+              <strong>还没有模型目录</strong>
+              <span>获取模型后可搜索和筛选</span>
+            </div>
+          </section>
+
+          <section class="results-section framed-section">
+            <div class="section-heading results-heading">
+              <div>
+                <span class="eyebrow">PROBE RESULTS</span>
+                <h3>逐模型结果</h3>
+              </div>
+              <div class="results-tools">
+                <span id="resultsCount" class="section-note">尚未运行</span>
+                <select id="resultSort" aria-label="结果排序">
+                  <option value="catalog">按目录顺序</option>
+                  <option value="latency">首次延迟升序</option>
+                  <option value="ttft">TTFT 升序</option>
+                  <option value="speed">输出速度降序</option>
+                  <option value="name">模型名称</option>
+                </select>
+                <button id="retryFailed" type="button" class="toolbar-button" disabled><span aria-hidden="true">↻</span>重试失败项</button>
+                <button id="exportCsv" type="button" class="toolbar-button" title="导出当前结果 CSV"><span aria-hidden="true">⇩</span>CSV</button>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>模型</th>
+                    <th>状态</th>
+                    <th>首延迟</th>
+                    <th>TTFT</th>
+                    <th>输出速度</th>
+                    <th>缓存</th>
+                    <th>复测延迟</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="resultsBody">
+                  <tr><td colspan="8" class="table-empty">运行全量探测后显示结果</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <p id="globalError" class="global-error" hidden></p>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="historyDialog" class="history-dialog">
+      <div class="dialog-heading">
+        <div>
+          <span class="eyebrow">LOCAL ARCHIVE</span>
+          <h2>测试历史</h2>
+        </div>
+        <div class="dialog-actions">
+          <button id="clearHistory" type="button" class="text-button danger-text">清空历史</button>
+          <button id="closeHistory" type="button" class="icon-button dialog-close" aria-label="关闭测试历史" title="关闭">×</button>
+        </div>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </dialog>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
