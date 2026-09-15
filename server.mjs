@@ -122,18 +122,17 @@ function summarizeError(text) {
   return compact.slice(0, 360);
 }
 
-async function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+async function fetchWithTimeout(url, options = {}, timeoutMs = 30000, externalSignal = null) {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  const signals = externalSignal ? [timeoutSignal, externalSignal] : [timeoutSignal];
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    return await fetch(url, { ...options, signal: AbortSignal.any(signals) });
   } catch (error) {
     if (error?.name === "AbortError") {
-      throw new UpstreamError(`请求超过 ${timeoutMs / 1000} 秒未完成。`, 504);
+      if (externalSignal?.aborted) throw new UpstreamError("请求已取消。", 499);
+      if (timeoutSignal.aborted) throw new UpstreamError(`请求超过 ${timeoutMs / 1000} 秒未完成。`, 504);
     }
     throw new UpstreamError(`无法连接上游：${error.message}`, 502);
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -596,7 +595,7 @@ function shouldFallback(error) {
   return error instanceof UpstreamError && [400, 404, 405, 422].includes(error.status);
 }
 
-async function streamProbe({ protocol, base, apiKey, model, prompt, maxOutputTokens, cacheProbe, timeoutMs = 90000 }) {
+async function streamProbe({ protocol, base, apiKey, model, prompt, maxOutputTokens, cacheProbe, timeoutMs = 90000, signal }) {
   const payload = protocol === "google"
     ? googlePayload(prompt, maxOutputTokens)
     : protocol === "claude"
@@ -611,6 +610,7 @@ async function streamProbe({ protocol, base, apiKey, model, prompt, maxOutputTok
       body: JSON.stringify(payload),
     },
     timeoutMs,
+    signal,
   );
   const responseTextType = response.headers.get("content-type") || "";
   if (!response.ok) {
@@ -669,7 +669,7 @@ async function streamProbe({ protocol, base, apiKey, model, prompt, maxOutputTok
   return { totalMs, ttftMs, output, usage, mode: "stream" };
 }
 
-async function normalProbe({ protocol, base, apiKey, model, prompt, maxOutputTokens, cacheProbe, timeoutMs = 90000 }) {
+async function normalProbe({ protocol, base, apiKey, model, prompt, maxOutputTokens, cacheProbe, timeoutMs = 90000, signal }) {
   const payload = protocol === "google"
     ? googlePayload(prompt, maxOutputTokens)
     : protocol === "claude"
@@ -684,6 +684,7 @@ async function normalProbe({ protocol, base, apiKey, model, prompt, maxOutputTok
       body: JSON.stringify(payload),
     },
     timeoutMs,
+    signal,
   );
   const raw = await readResponseBody(response);
   if (!response.ok) {
@@ -731,7 +732,7 @@ function cacheSummary(first, second) {
   };
 }
 
-async function probeModel(input) {
+async function probeModel(input, signal) {
   const protocol = String(input.protocol || "");
   if (!PROTOCOLS.has(protocol)) throw new Error("不支持的协议。");
   const model = String(input.model || "").trim();
@@ -748,8 +749,10 @@ async function probeModel(input) {
     maxOutputTokens: Math.min(256, Math.max(1, Number(input.maxOutputTokens) || 16)),
     timeoutMs: Math.min(180000, Math.max(10000, (Number(input.timeoutSeconds) || 90) * 1000)),
     cacheProbe: Boolean(input.cacheProbe),
+    signal,
   };
   const first = await probeOnce(args);
+  if (signal?.aborted) throw new UpstreamError("请求已取消。", 499);
   const second = args.cacheProbe ? await probeOnce(args) : null;
   const selected = second || first;
   const outputTokens = selected.usage.outputTokens;
@@ -832,8 +835,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (req.method === "POST" && req.url === "/api/probe") {
-      const result = await probeModel(await readJsonBody(req));
-      json(res, 200, result);
+      const controller = new AbortController();
+      const onClose = () => {
+        if (!res.writableFinished) controller.abort();
+      };
+      res.once("close", onClose);
+      try {
+        const result = await probeModel(await readJsonBody(req), controller.signal);
+        json(res, 200, result);
+      } finally {
+        res.off("close", onClose);
+      }
       return;
     }
     if (req.method === "GET" && req.url === "/api/ccswitch/profiles") {

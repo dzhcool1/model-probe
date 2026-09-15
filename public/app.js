@@ -23,6 +23,7 @@ const state = {
   batchScope: "",
   running: false,
   stopRequested: false,
+  abortController: null,
   expanded: new Set(),
   activeProfileId: "",
   activeRunId: "",
@@ -114,6 +115,7 @@ const statusLabels = {
   success: "成功",
   error: "失败",
   skipped: "跳过",
+  stopped: "已取消",
 };
 
 const cacheLabels = {
@@ -389,11 +391,12 @@ function deleteProfile() {
   createNewProfile();
 }
 
-async function postJson(url, payload) {
+async function postJson(url, payload, options = {}) {
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    signal: options.signal,
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || ("请求失败（HTTP " + response.status + "）"));
@@ -578,14 +581,14 @@ function successfulEntries() {
 }
 
 function finishedCount() {
-  return [...state.results.values()].filter((result) => ["success", "error", "skipped"].includes(result.status)).length;
+  return [...state.results.values()].filter((result) => ["success", "error", "skipped", "stopped"].includes(result.status)).length;
 }
 
 function batchSnapshot() {
   const batch = state.batch;
   const finished = batch.filter((id) => {
     const status = state.results.get(id)?.status;
-    return status === "success" || status === "error" || status === "skipped";
+    return status === "success" || status === "error" || status === "skipped" || status === "stopped";
   }).length;
   return { total: batch.length, finished };
 }
@@ -1096,6 +1099,7 @@ async function probeModels(modelIds, scope) {
 
   state.running = true;
   state.stopRequested = false;
+  state.abortController = new AbortController();
   state.batch = jobs.map((model) => model.id);
   state.batchScope = scope;
   state.activeRunId = "";
@@ -1139,10 +1143,14 @@ async function probeModels(modelIds, scope) {
           maxOutputTokens: Math.min(256, Math.max(1, Number(values.maxTokens) || 16)),
           timeoutSeconds: values.timeoutSeconds,
           cacheProbe: values.cacheProbe,
-        });
+        }, { signal: state.abortController.signal });
         state.results.set(model.id, { status: "success", data });
       } catch (error) {
-        state.results.set(model.id, { status: "error", error: error.message });
+        if (state.stopRequested && error?.name === "AbortError") {
+          state.results.set(model.id, { status: "stopped", error: "已取消" });
+        } else {
+          state.results.set(model.id, { status: "error", error: error.message });
+        }
       }
       renderDashboard();
     }
@@ -1156,7 +1164,7 @@ async function probeModels(modelIds, scope) {
       state.stopRequested ? "已停止后续任务" : scopeLabel + "完成",
       state.stopRequested ? "" : "success",
     );
-    if (state.stopRequested) showError("已停止新任务；已经发出的请求仍会完成，等待中的模型没有发起请求。");
+    if (state.stopRequested) showError("已停止新任务；正在进行的请求已取消。");
   } catch (error) {
     setStatus(scopeLabel + "失败", "error");
     showError(error.message);
@@ -1164,6 +1172,7 @@ async function probeModels(modelIds, scope) {
     state.running = false;
     setBusy(false);
     elements.stopProbe.disabled = true;
+    state.abortController = null;
     renderDashboard();
   }
 }
@@ -1198,8 +1207,9 @@ async function runAll() {
 function stopProbe() {
   if (!state.running) return;
   state.stopRequested = true;
+  state.abortController?.abort();
   elements.stopProbe.disabled = true;
-  setStatus("正在收尾当前请求...", "running");
+  setStatus("正在取消进行中的请求...", "running");
 }
 
 function loadRun(runId) {

@@ -569,6 +569,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--blue); box-shado
 .state-success .model-state-dot { background: var(--teal); }
 .state-error .model-state-dot { background: var(--red); }
 .state-skipped .model-state-dot { background: var(--orange); }
+.state-stopped .model-state-dot { background: var(--slate); }
 .model-option-name { min-width: 0; overflow: hidden; color: var(--ink-soft); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .model-option-status { margin-left: auto; flex: 0 0 auto; color: var(--muted); font-size: 9px; }
 .state-success .model-option-status { color: var(--teal); }
@@ -594,6 +595,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .status-label.running { color: var(--blue); background: var(--blue-soft); }
 .status-label.error { color: var(--red); background: var(--red-soft); }
 .status-label.waiting { color: var(--muted); background: #edf2f0; }
+.status-label.stopped { color: var(--muted); background: #edf2f0; }
 .status-label.skipped { color: var(--orange); background: var(--orange-soft); }
 .cache-label.hit { color: var(--teal); background: var(--teal-soft); }
 .cache-label.write { color: var(--orange); background: var(--orange-soft); }
