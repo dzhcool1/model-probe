@@ -9,7 +9,7 @@
     "start": "node server.mjs",
     "desktop": "electron .",
     "package:mac": "electron-builder --mac dir",
-    "check": "node --check server.mjs && node --check public/app.js && node --check desktop/main.mjs"
+    "check": "node --check server.mjs && node --check public/app.js && node --check desktop/main.mjs && node scripts/check-references.mjs"
   },
   "build": {
     "appId": "top.modelprobe.app",
