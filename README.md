@@ -50,16 +50,20 @@ npm run dev
 MODEL_PROBE_PORT=4300 npm run dev
 ```
 
-## macOS 应用
-
-需要在 macOS 上构建未签名的 Apple Silicon `.app`：
+## 桌面应用
 
 ```bash
 npm install
-npm run package:mac
+npm run package:mac   # macOS Apple Silicon，产物在 dist/mac-arm64/Model Probe.app
+npm run package:win   # Windows x64，产物在 dist/Model-Probe-v<版本>-win-x64.exe
 ```
 
-产物位于 `dist/mac-arm64/Model Probe.app`，双击即可启动。应用会在本机随机端口启动服务，退出时自动关闭；首次分发给其他 Mac 时需要使用 Apple Developer 证书签名和公证。
+应用会在本机随机端口启动服务，退出时自动关闭。macOS 与 Windows 安装包均为未签名版本，分发给他人时系统会拦截，需要对方手动放行：
+
+- **macOS**：构建使用 ad-hoc 签名（`build.mac.identity = "-"`）并通过 `codesign --verify`，但没有 Apple Developer 证书和公证。他人下载后首次打开会被 Gatekeeper 拦截，需在“系统设置 → 隐私与安全性”中点击“仍要打开”，或执行 `xattr -dr com.apple.quarantine "/Applications/Model Probe.app"`。注意 macOS 15 起已取消右键打开的快捷方式。
+- **Windows**：安装包没有代码签名证书，SmartScreen 会提示“Windows 已保护你的电脑”，需点击“更多信息 → 仍要运行”。
+
+要做到下载即用，需要配置 Apple Developer ID 证书并公证（macOS），以及购买代码签名证书（Windows）。
 
 ## 使用
 

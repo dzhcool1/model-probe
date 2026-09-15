@@ -9,7 +9,8 @@
     "start": "node server.mjs",
     "desktop": "electron .",
     "package:mac": "electron-builder --mac dir",
-    "check": "node --check server.mjs && node --check public/app.js && node --check desktop/main.mjs && node scripts/check-references.mjs"
+    "check": "node --check server.mjs && node --check public/app.js && node --check desktop/main.mjs && node scripts/check-references.mjs",
+    "package:win": "electron-builder --win"
   },
   "build": {
     "appId": "top.modelprobe.app",
@@ -28,7 +29,19 @@
       "category": "public.app-category.developer-tools",
       "target": [
         "dir"
-      ]
+      ],
+      "identity": "-"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Model-Probe-v${version}-win-${arch}.${ext}"
     }
   },
   "devDependencies": {
