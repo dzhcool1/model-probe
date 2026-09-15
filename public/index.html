@@ -127,8 +127,8 @@
           <section class="hero-panel">
             <div class="hero-main">
               <div>
-                <span class="eyebrow hero-eyebrow">LIVE DIAGNOSTICS / ALL MODELS</span>
-                <h2>全量模型体检</h2>
+                <span class="eyebrow hero-eyebrow">LIVE DIAGNOSTICS / SELECTABLE CATALOG</span>
+                <h2>模型体检</h2>
                 <p id="connectionSummary" class="connection-summary">等待一组连接</p>
               </div>
               <div class="run-meta">
@@ -137,11 +137,14 @@
               </div>
             </div>
             <div class="hero-actions">
-              <button id="runAll" type="button" class="primary-button">
-                <span class="button-icon" aria-hidden="true">▶</span>获取模型并测试全部
+              <button id="loadModels" type="button" class="primary-button">
+                <span class="button-icon" aria-hidden="true">↻</span>获取模型目录
               </button>
-              <button id="loadModels" type="button" class="secondary-button">
-                <span class="button-icon" aria-hidden="true">↻</span>刷新模型目录
+              <button id="runAll" type="button" class="secondary-button" disabled>
+                <span class="button-icon" aria-hidden="true">▶</span>测试全部
+              </button>
+              <button id="runSelected" type="button" class="secondary-button" disabled>
+                <span class="button-icon" aria-hidden="true">◎</span><span id="runSelectedLabel">测试选中</span>
               </button>
               <button id="stopProbe" type="button" class="stop-button" disabled>
                 <span class="button-icon" aria-hidden="true">■</span>停止后续任务
@@ -149,7 +152,7 @@
             </div>
             <div class="progress-wrap">
               <div class="progress-heading">
-                <span id="progressLabel">准备开始全量探测</span>
+                <span id="progressLabel">先获取模型目录</span>
                 <strong id="progressValue">0%</strong>
               </div>
               <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
@@ -253,11 +256,21 @@
                 </select>
               </div>
             </div>
-            <div class="catalog-subhead"><span id="catalogNote" class="section-note">尚未获取</span><span id="catalogVisibleNote" class="section-note"></span></div>
+            <div class="catalog-subhead">
+              <span id="catalogNote" class="section-note">尚未获取</span>
+              <div class="catalog-select-tools">
+                <span id="selectedCount" class="section-note">未选中</span>
+                <button id="selectAllModels" type="button" class="mini-button" disabled>全选</button>
+                <button id="selectVisibleModels" type="button" class="mini-button" disabled>选中当前筛选</button>
+                <button id="invertSelection" type="button" class="mini-button" disabled>反选</button>
+                <button id="clearSelection" type="button" class="mini-button" disabled>清空</button>
+                <span id="catalogVisibleNote" class="section-note"></span>
+              </div>
+            </div>
             <div id="modelList" class="model-list empty-state">
               <div class="empty-icon" aria-hidden="true">⌁</div>
               <strong>还没有模型目录</strong>
-              <span>获取模型后可搜索和筛选</span>
+              <span>获取模型后可搜索、筛选和勾选</span>
             </div>
           </section>
 
@@ -295,7 +308,7 @@
                   </tr>
                 </thead>
                 <tbody id="resultsBody">
-                  <tr><td colspan="8" class="table-empty">运行全量探测后显示结果</td></tr>
+                  <tr><td colspan="8" class="table-empty">测试后显示结果</td></tr>
                 </tbody>
               </table>
             </div>
